@@ -9,10 +9,8 @@ from datetime import datetime
 
 app = FastAPI()
 
-# Crear base de datos al iniciar
 crear_base_datos()
 
-# Modelos Pydantic para validación
 class PersonajeCreate(BaseModel):
     nombre: str
 
@@ -57,7 +55,7 @@ def crear_mision(mision: MisionCreate, db: Session = Depends(get_db)):
 
 @app.post("/personajes/{personaje_id}/misiones/{mision_id}", response_model=PersonajeResponse)
 def aceptar_mision(personaje_id: int, mision_id: int, db: Session = Depends(get_db)):
-    # Verificar que existan el personaje y la misión
+
     personaje = db.query(Personaje).filter(Personaje.id == personaje_id).first()
     if not personaje:
         raise HTTPException(status_code=404, detail="Personaje no encontrado")
@@ -66,7 +64,6 @@ def aceptar_mision(personaje_id: int, mision_id: int, db: Session = Depends(get_
     if not mision:
         raise HTTPException(status_code=404, detail="Misión no encontrada")
     
-    # Verificar si la relación ya existe
     existe_relacion = db.query(MisionPersonaje).filter(
         MisionPersonaje.personaje_id == personaje_id,
         MisionPersonaje.mision_id == mision_id
@@ -77,13 +74,10 @@ def aceptar_mision(personaje_id: int, mision_id: int, db: Session = Depends(get_
             status_code=400,
             detail="El personaje ya tiene asignada esta misión"
         )
-    
-    # Obtener el máximo orden actual
     max_orden = db.query(func.max(MisionPersonaje.orden)).filter(
         MisionPersonaje.personaje_id == personaje_id
     ).scalar() or 0
     
-    # Crear la relación
     nueva_mision_personaje = MisionPersonaje(
         personaje_id=personaje_id,
         mision_id=mision_id,
@@ -93,18 +87,16 @@ def aceptar_mision(personaje_id: int, mision_id: int, db: Session = Depends(get_
     db.add(nueva_mision_personaje)
     db.commit()
     
-    # Refrescar y devolver el personaje
     db.refresh(personaje)
     return personaje
 
 @app.post("/personajes/{personaje_id}/completar", response_model=PersonajeResponse)
 def completar_mision(personaje_id: int, db: Session = Depends(get_db)):
-    # Verificar que exista el personaje
+
     personaje = db.query(Personaje).filter(Personaje.id == personaje_id).first()
     if not personaje:
         raise HTTPException(status_code=404, detail="Personaje no encontrado")
     
-    # Obtener la misión con el menor orden (FIFO)
     mision_personaje = db.query(MisionPersonaje).filter(
         MisionPersonaje.personaje_id == personaje_id
     ).order_by(MisionPersonaje.orden.asc()).first()
@@ -112,19 +104,14 @@ def completar_mision(personaje_id: int, db: Session = Depends(get_db)):
     if not mision_personaje:
         raise HTTPException(status_code=404, detail="No hay misiones pendientes")
     
-    # Obtener la misión asociada
     mision = db.query(Mision).filter(Mision.id == mision_personaje.mision_id).first()
     
-    # Actualizar estado de la misión
     mision.estado = 'completada'
     
-    # Sumar experiencia al personaje
     personaje.experiencia += mision.experiencia
     
-    # Eliminar la relación (desencolar)
     db.delete(mision_personaje)
     
-    # Reordenar las misiones restantes
     misiones_restantes = db.query(MisionPersonaje).filter(
         MisionPersonaje.personaje_id == personaje_id,
         MisionPersonaje.orden > mision_personaje.orden
@@ -139,12 +126,11 @@ def completar_mision(personaje_id: int, db: Session = Depends(get_db)):
 
 @app.get("/personajes/{personaje_id}/misiones", response_model=List[MisionResponse])
 def listar_misiones(personaje_id: int, db: Session = Depends(get_db)):
-    # Verificar que exista el personaje
+
     personaje = db.query(Personaje).filter(Personaje.id == personaje_id).first()
     if not personaje:
         raise HTTPException(status_code=404, detail="Personaje no encontrado")
     
-    # Obtener misiones en orden FIFO (por campo orden)
     misiones = db.query(Mision).join(MisionPersonaje).filter(
         MisionPersonaje.personaje_id == personaje_id
     ).order_by(MisionPersonaje.orden.asc()).all()

@@ -17,7 +17,6 @@ class Mision(Base):
     estado = Column(Enum('pendiente', 'completada', name='estados'), nullable=False)
     fecha_creacion = Column(DateTime, default=datetime.now)
 
-    # Relación con MisionPersonaje
     personajes = relationship("MisionPersonaje", back_populates="mision")
 
 class Personaje(Base):
@@ -40,8 +39,6 @@ class MisionPersonaje(Base):
     
     personaje_id = Column(Integer, ForeignKey('personajes.id'), primary_key=True)
     mision_id = Column(Integer, ForeignKey('misiones.id'), primary_key=True)
-    orden = Column(Integer)  # Para mantener el orden FIFO de las misiones
-
-    # Relaciones inversas
+    orden = Column(Integer) 
     personaje = relationship("Personaje", back_populates="misiones")
     mision = relationship("Mision", back_populates="personajes")
